@@ -3,32 +3,46 @@
 ! Contacts: Robert Pincus and Eli Mlawer
 ! email:  rrtmgp@aer.com
 !
-! Copyright 2015-2019,  Atmospheric and Environmental Research and
-! Regents of the University of Colorado.  All right reserved.
+! Copyright 2015-  Atmospheric and Environmental Research,
+!    Regents of the University of Colorado,
+!    Trustees of Columbia University in the City of New York
+! All right reserved.
 !
 ! Use and duplication is permitted under the terms of the
 !    BSD 3-clause license, see http://opensource.org/licenses/BSD-3-Clause
 ! -------------------------------------------------------------------------------------------------
 module mo_rte_util_array
 !
-! This module provide utilites for sanitizing input arrays:
+!> Provide utilites for sanitizing input arrays:
 !    checking values and sizes
 ! These are in a module so code can be written for both CPUs and GPUs
 ! Used only by Fortran classes so routines don't need C bindings and can use assumed-shape
 !
   use mo_rte_kind,      only: wp, wl
   implicit none
+  !>
+  !> Values less than a floor (including masked versions)
+  !>
   interface any_vals_less_than
     module procedure any_vals_less_than_1D,        any_vals_less_than_2D,        any_vals_less_than_3D
     module procedure any_vals_less_than_1D_masked, any_vals_less_than_2D_masked, any_vals_less_than_3D_masked
   end interface
+  !>
+  !> Values outside a range (including masked versions)
+  !>
   interface any_vals_outside
     module procedure any_vals_outside_1D,        any_vals_outside_2D,        any_vals_outside_3D
     module procedure any_vals_outside_1D_masked, any_vals_outside_2D_masked, any_vals_outside_3D_masked
   end interface
+  !>
+  !> Efficiently set arrays to zero
+  !>
   interface zero_array
-    module procedure zero_array_1D, zero_array_3D, zero_array_4D
+    module procedure zero_array_1D, zero_array_2D, zero_array_3D, zero_array_4D
   end interface
+  !>
+  !> Find the extents of an array
+  !>
   interface extents_are
     module procedure extents_are_1D, extents_are_2D, extents_are_3D
     module procedure extents_are_4D, extents_are_5D, extents_are_6D
@@ -48,8 +62,10 @@ contains
     real(wp) :: minValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array) map(from:minValue)
     minValue = minval(array)
     !$acc end kernels
+    !$omp end target
 
     any_vals_less_than_1D = (minValue < check_value)
 
@@ -62,8 +78,10 @@ contains
     real(wp) :: minValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array) map(from:minValue)
     minValue = minval(array)
     !$acc end kernels
+    !$omp end target
 
     any_vals_less_than_2D = (minValue < check_value)
 
@@ -75,9 +93,28 @@ contains
 
     real(wp) :: minValue
 
+#ifdef _OPENMP
+    integer :: dim1, dim2, dim3, i, j, k
+    dim1 = size(array,1)
+    dim2 = size(array,2)
+    dim3 = size(array,3)
+    minValue = check_value + epsilon(check_value) ! initialize to some value
+    !$omp target teams map(to:array) &
+    !$omp defaultmap(tofrom:scalar) reduction(min:minValue)
+    !$omp distribute parallel do simd reduction(min:minValue)
+    do i = 1, dim1
+       do j = 1, dim2
+          do k = 1, dim3
+             minValue = min(minValue,array(i,j,k))
+          enddo
+       enddo
+    enddo
+    !$omp end target teams
+#else
     !$acc kernels copyin(array)
     minValue = minval(array)
     !$acc end kernels
+#endif
 
     any_vals_less_than_3D = (minValue < check_value)
 
@@ -93,8 +130,10 @@ contains
     real(wp) :: minValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue)
     minValue = minval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
 
     any_vals_less_than_1D_masked = (minValue < check_value)
 
@@ -108,8 +147,10 @@ contains
     real(wp) :: minValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue)
     minValue = minval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
 
     any_vals_less_than_2D_masked = (minValue < check_value)
 
@@ -123,8 +164,10 @@ contains
     real(wp) :: minValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue)
     minValue = minval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
 
     any_vals_less_than_3D_masked = (minValue < check_value)
 
@@ -139,9 +182,11 @@ contains
     real(wp) :: minValue, maxValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array) map(from:minValue, maxValue)
     minValue = minval(array)
     maxValue = maxval(array)
     !$acc end kernels
+    !$omp end target
     any_vals_outside_1D = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_1D
@@ -153,9 +198,11 @@ contains
     real(wp) :: minValue, maxValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array) map(from:minValue, maxValue)
     minValue = minval(array)
     maxValue = maxval(array)
     !$acc end kernels
+    !$omp end target
     any_vals_outside_2D = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_2D
@@ -168,10 +215,33 @@ contains
       ! but an explicit loop is the only current solution on GPUs
     real(wp) :: minValue, maxValue
 
+
+#ifdef _OPENMP
+    integer :: dim1, dim2, dim3, i, j, k
+    dim1 = size(array,1)
+    dim2 = size(array,2)
+    dim3 = size(array,3)
+    minValue = checkMin + epsilon(checkMin) ! initialize to some value
+    maxValue = checkMax - epsilon(checkMax) ! initialize to some value
+    !$omp target teams map(to:array) &
+    !$omp defaultmap(tofrom:scalar) reduction(min:minValue) reduction(max:maxValue)
+    !$omp distribute parallel do simd reduction(min:minValue) reduction(max:maxValue)
+    do i= 1, dim1
+       do j = 1, dim2
+          do k = 1, dim3
+             minValue = min(minValue,array(i,j,k))
+             maxValue = max(maxValue,array(i,j,k))
+          enddo
+       enddo
+    enddo
+    !$omp end target teams
+#else
     !$acc kernels copyin(array)
     minValue = minval(array)
     maxValue = maxval(array)
     !$acc end kernels
+#endif
+
     any_vals_outside_3D = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_3D
@@ -186,9 +256,11 @@ contains
     real(wp) :: minValue, maxValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue, maxValue)
     minValue = minval(array, mask=mask)
     maxValue = maxval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
     any_vals_outside_1D_masked = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_1D_masked
@@ -201,9 +273,11 @@ contains
     real(wp) :: minValue, maxValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue, maxValue)
     minValue = minval(array, mask=mask)
     maxValue = maxval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
     any_vals_outside_2D_masked = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_2D_masked
@@ -216,9 +290,11 @@ contains
     real(wp) :: minValue, maxValue
 
     !$acc kernels copyin(array)
+    !$omp target map(to:array, mask) map(from:minValue, maxValue)
     minValue = minval(array, mask=mask)
     maxValue = maxval(array, mask=mask)
     !$acc end kernels
+    !$omp end target
     any_vals_outside_3D_masked = minValue < checkMin .or. maxValue > checkMax
 
   end function any_vals_outside_3D_masked
@@ -308,10 +384,27 @@ contains
     integer :: i
     ! -----------------------
     !$acc parallel loop copyout(array)
+    !$omp target teams distribute parallel do simd map(from:array)
     do i = 1, ni
       array(i) = 0.0_wp
     end do
   end subroutine zero_array_1D
+  ! ----------------------------------------------------------
+  subroutine zero_array_2D(ni, nj, array) bind(C, name="zero_array_2D")
+    integer,                     intent(in ) :: ni, nj
+    real(wp), dimension(ni, nj), intent(out) :: array
+    ! -----------------------
+    integer :: i,j
+    ! -----------------------
+    !$acc parallel loop collapse(2) copyout(array)
+    !$omp target teams distribute parallel do simd collapse(2) map(from:array)
+    do j = 1, nj
+      do i = 1, ni
+        array(i,j) = 0.0_wp
+      end do
+    end do
+
+  end subroutine zero_array_2D
   ! ----------------------------------------------------------
   subroutine zero_array_3D(ni, nj, nk, array) bind(C, name="zero_array_3D")
     integer,                         intent(in ) :: ni, nj, nk
@@ -320,6 +413,7 @@ contains
     integer :: i,j,k
     ! -----------------------
     !$acc parallel loop collapse(3) copyout(array)
+    !$omp target teams distribute parallel do simd collapse(3) map(from:array)
     do k = 1, nk
       do j = 1, nj
         do i = 1, ni
@@ -337,6 +431,7 @@ contains
     integer :: i,j,k,l
     ! -----------------------
     !$acc parallel loop collapse(4) copyout(array)
+    !$omp target teams distribute parallel do simd collapse(4) map(from:array)
     do l = 1, nl
       do k = 1, nk
         do j = 1, nj

@@ -130,8 +130,10 @@ contains
     integer :: nblocks
     real(wp), dimension(ncol_l, nexp_l) :: temp2D
     ! ---------------------------
-    if(any([ncol_l, nlay_l, nexp_l]  == 0)) call stop_on_err("read_and_block_sw_bc: Haven't read problem size yet.")
-    if(mod(ncol_l*nexp_l, blocksize) /= 0 ) call stop_on_err("read_and_block_sw_bc: number of columns doesn't fit evenly into blocks.")
+    if(any([ncol_l, nlay_l, nexp_l]  == 0)) &
+      call stop_on_err("read_and_block_sw_bc: Haven't read problem size yet.")
+    if(mod(ncol_l*nexp_l, blocksize) /= 0 ) &
+      call stop_on_err("read_and_block_sw_bc: number of columns doesn't fit evenly into blocks.")
     nblocks = (ncol_l*nexp_l)/blocksize
     !
     ! Check that output arrays are sized correctly : blocksize, nlay, (ncol * nexp)/blocksize
@@ -203,25 +205,25 @@ contains
     character(len=32), dimension(11) :: &
       chem_name = ['co   ', &
                    'ch4  ', &
-        				   'o2   ', &
-        				   'n2o  ', &
-        				   'n2   ', &
-        				   'co2  ', &
-        				   'CCl4 ', &
-        				   'ch4  ', &
-        				   'CH3Br', &
-   			           'CH3Cl', &
+                   'o2   ', &
+                   'n2o  ', &
+                   'n2   ', &
+                   'co2  ', &
+                   'CCl4 ', &
+                   'ch4  ', &
+                   'CH3Br', &
+                   'CH3Cl', &
                    'cfc22'], &
       conc_name = ['carbon_monoxide     ', &
                    'methane             ', &
                    'oxygen              ', &
-          			   'nitrous_oxide       ', &
-          			   'nitrogen            ', &
-        				   'carbon_dioxide      ', &
-        				   'carbon_tetrachloride', &
-        				   'methane             ', &
-        				   'methyl_bromide      ', &
-        				   'methyl_chloride     ', &
+                   'nitrous_oxide       ', &
+                   'nitrogen            ', &
+                   'carbon_dioxide      ', &
+                   'carbon_tetrachloride', &
+                   'methane             ', &
+                   'methyl_bromide      ', &
+                   'methyl_chloride     ', &
                    'hcfc22              ']
     ! ----------------
     select case (forcing_index)
@@ -338,7 +340,17 @@ contains
     !   here but that's kinda hard, so we set its concentration to 0 below.
     !
     do b = 1, nblocks
-      call stop_on_err(gas_conc_array(b)%init(gas_names))
+      ! Need to know the names of the gases to be used to initialize the
+      !   gas concentrations object. A list of all possible gas names is taken from
+      !   the k-distribution file when forcing index is 1, but we provide a short list
+      !   that excludes h2o, o3, and no2 when forcing index is 2 or 3. We nontheless
+      !   need to provide those names at initialization
+      !
+      if(any( [(string_in_array(gas_names(g), ['h2o', 'o3 ', 'no2']), g = 1, size(gas_names) )])) then
+        call stop_on_err(gas_conc_array(b)%init(gas_names))
+      else
+        call stop_on_err(gas_conc_array(b)%init([gas_names, 'h2o    ', 'o3     ', 'no2    ']))
+      end if 
     end do
     !
     ! Which gases are known to the k-distribution and available in the files?
@@ -374,7 +386,8 @@ contains
       if(string_in_array(gas_names(g), ['h2o', 'o3 ', 'no2'])) cycle
 
       ! Read the values as a function of experiment
-      gas_conc_temp_1d = read_field(ncid, trim(names_in_file(g)) // "_GM", nexp_l) * read_scaling(ncid, trim(names_in_file(g)) // "_GM")
+      gas_conc_temp_1d = read_field  (ncid, trim(names_in_file(g)) // "_GM", nexp_l) * &
+                         read_scaling(ncid, trim(names_in_file(g)) // "_GM")
 
       do b = 1, nblocks
         ! Does every value in this block belong to the same experiment?
@@ -431,12 +444,15 @@ contains
     integer :: b, blocksize, nlev, nblocks
     real(wp), dimension(:,:), allocatable :: temp2d
     ! ---------------------------
-    if(any([ncol_l, nlay_l, nexp_l]  == 0)) call stop_on_err("unblock_and_write: Haven't read problem size yet.")
+    if(any([ncol_l, nlay_l, nexp_l]  == 0)) &
+      call stop_on_err("unblock_and_write: Haven't read problem size yet.")
     blocksize = size(values,1)
     nlev      = size(values,2)
     nblocks   = size(values,3)
-    if(nlev /= nlay_l+1)                   call stop_on_err('unblock_and_write: array values has the wrong number of levels')
-    if(blocksize*nblocks /= ncol_l*nexp_l) call stop_on_err('unblock_and_write: array values has the wrong number of blocks/size')
+    if(nlev /= nlay_l+1)                   call &
+      stop_on_err('unblock_and_write: array values has the wrong number of levels')
+    if(blocksize*nblocks /= ncol_l*nexp_l) &
+      call stop_on_err('unblock_and_write: array values has the wrong number of blocks/size')
 
     allocate(temp2D(nlev, ncol_l*nexp_l))
     do b = 1, nblocks
@@ -462,7 +478,7 @@ contains
     character(len=*), intent(in) :: msg
     if(len_trim(msg) > 0) then
       write(error_unit,*) trim(msg)
-      stop
+      error stop 1
     end if
   end subroutine
 end module mo_rfmip_io

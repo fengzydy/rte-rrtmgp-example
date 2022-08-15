@@ -7,12 +7,22 @@
 # Object files
 *.o
 
+# Dependency files
+*.d
+
+# Fortran module files
+*.mod
+*.mod.proxy
+
 # Intel vectorization reports
 *.optrpt
 
-# Don't commit specific Makefile variants
-Makefile.libs
-Makefile.conf
+# Netcdf file during testing
+examples/*/*.nc
+examples/*/*/*.nc
+
+# Jupyter notebooks
+.ipynb_checkpoints
 
 # Intel code coverage
 *.dyn
@@ -22,3 +32,9 @@ Makefile.conf
 *.HTML
 *.html
 *.gif
+
+# gh-pages directory
+public
+
+# Ruby stuff
+**/Gemfile.lock
