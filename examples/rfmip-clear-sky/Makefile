@@ -47,7 +47,7 @@ VPATH = ../
 #
 ADDITIONS = mo_simple_netcdf.o mo_rfmip_io.o mo_clr_io.o mo_clr_io_kernel.o mo_load_coefficients.o
 
-all: rrtmgp_rfmip_lw rrtmgp_rfmip_sw stratospheric_adjustment_reduced_Output clearsky_kernel clearsky_rrtmgp
+all: rrtmgp_rfmip_lw rrtmgp_rfmip_sw clearsky_kernel clearsky_rrtmgp #stratospheric_adjustment_reduced_Output
 
 rrtmgp_rfmip_lw:   rrtmgp_rfmip_lw.o   $(ADDITIONS) $(RRTMGP_BUILD)/librrtmgp.a $(RRTMGP_BUILD)/librte.a
 
@@ -63,8 +63,8 @@ clearsky_rrtmgp.o: clearsky_rrtmgp.F90 $(ADDITIONS)
 clearsky_kernel: clearsky_kernel.o $(ADDITIONS) $(RRTMGP_BUILD)/librrtmgp.a $(RRTMGP_BUILD)/librte.a
 clearsky_kernel.o: clearsky_kernel.F90 $(ADDITIONS)
 
-stratospheric_adjustment_reduced_Output:  stratospheric_adjustment_reduced_Output.o $(ADDITIONS) $(RRTMGP_BUILD)/librrtmgp.a $(RRTMGP_BUILD)/librte.a
-stratospheric_adjustment_reduced_Output.o: stratospheric_adjustment_reduced_Output.F90 $(ADDITIONS)
+#stratospheric_adjustment_reduced_Output:  stratospheric_adjustment_reduced_Output.o $(ADDITIONS) $(RRTMGP_BUILD)/librrtmgp.a $(RRTMGP_BUILD)/librte.a
+#stratospheric_adjustment_reduced_Output.o: stratospheric_adjustment_reduced_Output.F90 $(ADDITIONS)
 
 mo_rfmip_io:        mo_rfmip_io.o    
 mo_clr_io:          mo_clr_io.o    
@@ -88,4 +88,4 @@ multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc:
 	python stage_files.py
 
 clean:
-	-rm rrtmgp_rfmip_sw rrtmgp_rfmip_lw stratospheric_adjustment_reduced_Output clearsky_kernel clearsky_rrtmgp *.o *.mod *.optrpt *.nc
+	-rm rrtmgp_rfmip_sw rrtmgp_rfmip_lw clearsky_kernel clearsky_rrtmgp *.o *.mod *.optrpt *.nc #stratospheric_adjustment_reduced_Output
