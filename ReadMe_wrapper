@@ -3,5 +3,5 @@
 2. specify inputs and run RRTMGP clear-sky longwave example using execute_RRTMGP_lw_input.m:
     a. execute_RRTMGP_lw_input reads in temperature, humidity, and pressure profiles
     b. it calls routine "write_input_atmos.m" to generate an input file "test.nc"
-    c. then it runs bash script "run_clear_lw.sh"  and runs an executable file "./examples/rfmip-clear-sky/clearsky_rrtmgp".
+    c. then it runs bash script "run_clear_lw.sh"  and runs an executable file "./examples/rfmip-clear-sky/clearsky_rrtmgp" generated at step 1.
     d. last, it reads OLR outputs.
